@@ -6,7 +6,7 @@ fn main() {
     whee(Root::new());
 }
 
-fn whee(c: &mut impl Scope) {
+fn whee(c: &impl Scope) {
     scope! { c:
         woo(c);
         c.decl_dep_ref::<u32>();
@@ -14,14 +14,14 @@ fn whee(c: &mut impl Scope) {
     }
 }
 
-fn woo(c: &mut impl Scope) {
+fn woo(c: &impl Scope) {
     scope! { c:
         woz(c);
         c.decl_dep_ref::<u32>();
     }
 }
 
-fn woz(c: &mut impl Scope) {
+fn woz(c: &impl Scope) {
     scope! { c:
         borrows_i32_mut(c);
     }
@@ -37,12 +37,12 @@ scope! { pub WheeCx }
 pub struct Whee {}
 
 impl Whee {
-    pub fn do_something(&mut self, c: &mut WheeCx) {
+    pub fn do_something(&mut self, c: &WheeCx) {
         c.decl_dep_mut::<i32>();
         self.do_something_else(c);
     }
 
-    pub fn do_something_else(&mut self, c: &mut WheeCx) {
+    pub fn do_something_else(&mut self, c: &WheeCx) {
         c.decl_dep_mut::<i32>();
     }
 }

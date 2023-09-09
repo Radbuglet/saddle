@@ -4,16 +4,6 @@ use core::{any::type_name, hint::black_box};
 
 #[doc(hidden)]
 pub mod scope_macro_internals {
-    pub fn leak_zst<'a, T: 'a>(value: T) -> &'a mut T {
-        // Ensure that the value is a ZST
-        assert_eq!(core::mem::size_of::<T>(), 0);
-
-        // Ensure that its destructor doesn't run
-        core::mem::forget(value);
-
-        unsafe { core::ptr::NonNull::<T>::dangling().as_mut() }
-    }
-
     pub use {
         crate::{scope, Scope},
         core::mem::drop,
@@ -31,7 +21,7 @@ macro_rules! scope {
 			use $crate::scope_macro_internals::Scope as _;
 			$crate::scope_macro_internals::scope!(InlineBlock);
 
-			let to: &mut InlineBlock = $from.decl_call::<InlineBlock>();
+			let to: &InlineBlock = $from.decl_call::<InlineBlock>();
 			to
 		};
 
@@ -62,15 +52,15 @@ macro_rules! scope {
 		$vis struct $name { _private: () }
 
 		impl $crate::Scope for $name {
-			fn new<'a>() -> &'a mut Self {
-				::std::boxed::Box::leak(::std::boxed::Box::new(Self { _private: () }))
+			fn new<'a>() -> &'a Self {
+				&Self { _private: () }
 			}
 		}
 	)*};
 }
 
 pub trait Scope: 'static + Sized {
-    fn new<'a>() -> &'a mut Self;
+    fn new<'a>() -> &'a Self;
 
     fn decl_dep_ref<T: 'static>(&self) {
         black_box(type_name::<SaddleInternalV1DeclForDepRef<Self, T>>());
@@ -80,7 +70,7 @@ pub trait Scope: 'static + Sized {
         black_box(type_name::<SaddleInternalV1DeclForDepMut<Self, T>>());
     }
 
-    fn decl_call<G: Scope>(&mut self) -> &mut G {
+    fn decl_call<G: Scope>(&self) -> &G {
         black_box(type_name::<SaddleInternalV1DeclForCall<Self, G>>());
 
         G::new()
