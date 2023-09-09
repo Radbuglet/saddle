@@ -104,7 +104,7 @@ pub struct Validator<'a> {
 #[derive(Debug, Default)]
 struct Scope<'a> {
     borrows: FxHashMap<ComponentId<'a>, (Mutability, Vec<BorrowMeta<'a>>)>,
-    sub_grants: FxHashMap<ComponentId<'a>, (Mutability, Vec<BorrowMeta<'a>>)>,
+    grants: FxHashMap<ComponentId<'a>, (Mutability, Vec<BorrowMeta<'a>>)>,
     meta: Option<ScopeMeta<'a>>,
 }
 
@@ -140,7 +140,7 @@ impl<'a> Validator<'a> {
         metas.push(meta);
     }
 
-    pub fn push_sub_grant(
+    pub fn push_grant(
         &mut self,
         scope: ScopeId<'a>,
         component: ComponentId<'a>,
@@ -149,7 +149,7 @@ impl<'a> Validator<'a> {
     ) {
         let scope_idx = self.get_scope_node(scope);
         let (curr_access, metas) = self.call_graph[scope_idx]
-            .sub_grants
+            .grants
             .entry(component)
             .or_insert_with(Default::default);
 
@@ -390,48 +390,45 @@ impl<'a> Validator<'a> {
                 }
             }
 
-            pub fn extend_borrows(
-                &mut self,
-                caller: NodeIndex,
-                calling_scope: &'a Scope,
-                callee: NodeIndex,
-            ) {
+            pub fn propagate_borrows_to_self(&mut self, src_idx: NodeIndex, src: &'a Scope) {
+                // Propagate scope borrows to self
+                // TODO: This is fine to run several times but really shouldn't be.
+                for (req_ty, (req_mut, _req_meta)) in &src.borrows {
+                    let pbs_mut = self.potentially_borrowed[src_idx.index()]
+                        .entry(req_ty.clone())
+                        .or_insert(Mutability::Immutable);
+
+                    *pbs_mut = pbs_mut.strictest(*req_mut);
+                }
+            }
+
+            pub fn propagate_borrows_to_others(&mut self, caller: NodeIndex, callee: NodeIndex) {
                 let (caller_pbs, callee_pbs) = borrow_two(
                     &mut self.potentially_borrowed,
                     caller.index(),
                     callee.index(),
                 );
 
-                // Propagate scope borrows
-                for (req_ty, (mut req_mut, _req_meta)) in &calling_scope.borrows {
-                    // Ensure that we haven't "cancelled" this borrow's propagation using a sub-grant
-                    match calling_scope.sub_grants.get(req_ty) {
-                        Some((Mutability::Immutable, _)) => {
-                            // If we grant immutable access, we're either weakening immutable access
-                            // to immutable access or mutable access to immutable access.
-                            req_mut = Mutability::Immutable;
-                        }
-                        Some((Mutability::Mutable, _)) => {
-                            // If we grant mutable access, we're getting rid of the borrow all-together.
-                            continue;
-                        }
+                for (req_ty, req_mut) in &*caller_pbs {
+                    let mut req_mut = *req_mut;
+
+                    // Downgrade callee's PBS if they have a grant for the specific component.
+                    match self.validator.call_graph[callee]
+                        .grants
+                        .get(&req_ty)
+                        .map(|(m, _)| *m)
+                    {
+                        Some(Mutability::Immutable) => req_mut = Mutability::Immutable,
+                        Some(Mutability::Mutable) => continue,
                         None => {}
                     }
 
-                    // Otherwise, propagate the borrow as usual.
-                    let pbs_mut = caller_pbs
+                    // Extend the callee's PBS.
+                    let pbs_mut = callee_pbs
                         .entry(req_ty.clone())
                         .or_insert(Mutability::Immutable);
 
                     *pbs_mut = pbs_mut.strictest(req_mut);
-                }
-
-                // Propagate inherited borrows
-                for (req_ty, req_mut) in &*caller_pbs {
-                    let pbs_mut = callee_pbs
-                        .entry(req_ty.clone())
-                        .or_insert(Mutability::Immutable);
-                    *pbs_mut = pbs_mut.strictest(*req_mut);
                 }
             }
         }
@@ -444,9 +441,12 @@ impl<'a> Validator<'a> {
             // Validate ourselves given our PBS
             cx.validate_scope(src_idx, src);
 
-            // Extend our own PBS with our borrows and propagate it to others
+            // Extend our own PBS with our borrows
+            cx.propagate_borrows_to_self(src_idx, src);
+
+            // Propagate it to others
             for callee in self.call_graph.edges_directed(src_idx, Direction::Outgoing) {
-                cx.extend_borrows(src_idx, src, callee.target());
+                cx.propagate_borrows_to_others(src_idx, callee.target());
             }
         }
 

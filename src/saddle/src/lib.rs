@@ -92,13 +92,13 @@ pub trait Scope: 'static + Sized {
         >());
     }
 
-    fn decl_sub_grant_ref<T: 'static>(&self) {
+    fn decl_grant_ref<T: 'static>(&self) {
         black_box(type_name::<
             SaddleInternalV1DeclForGrantRef<Self::_InternalDisamb, T>,
         >());
     }
 
-    fn decl_sub_grant_mut<T: 'static>(&self) {
+    fn decl_grant_mut<T: 'static>(&self) {
         black_box(type_name::<
             SaddleInternalV1DeclForGrantMut<Self::_InternalDisamb, T>,
         >());

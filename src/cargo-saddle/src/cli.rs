@@ -83,7 +83,7 @@ pub fn main_inner() -> anyhow::Result<()> {
                             },
                         );
 
-                        validator.push_sub_grant(
+                        validator.push_grant(
                             ScopeId(arg_1, []),
                             ComponentId(arg_2, []),
                             mutability,
