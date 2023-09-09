@@ -104,6 +104,7 @@ pub struct Validator<'a> {
 #[derive(Debug, Default)]
 struct Scope<'a> {
     borrows: FxHashMap<ComponentId<'a>, (Mutability, Vec<BorrowMeta<'a>>)>,
+    sub_grants: FxHashMap<ComponentId<'a>, (Mutability, Vec<BorrowMeta<'a>>)>,
     meta: Option<ScopeMeta<'a>>,
 }
 
@@ -132,6 +133,23 @@ impl<'a> Validator<'a> {
         let scope_idx = self.get_scope_node(scope);
         let (curr_access, metas) = self.call_graph[scope_idx]
             .borrows
+            .entry(component)
+            .or_insert_with(Default::default);
+
+        *curr_access = curr_access.strictest(req_access);
+        metas.push(meta);
+    }
+
+    pub fn push_sub_grant(
+        &mut self,
+        scope: ScopeId<'a>,
+        component: ComponentId<'a>,
+        req_access: Mutability,
+        meta: BorrowMeta<'a>,
+    ) {
+        let scope_idx = self.get_scope_node(scope);
+        let (curr_access, metas) = self.call_graph[scope_idx]
+            .sub_grants
             .entry(component)
             .or_insert_with(Default::default);
 
@@ -274,6 +292,7 @@ impl<'a> Validator<'a> {
                     )
                     .unwrap();
 
+                    // TODO: Improve diagnostics for sub grants
                     fn print_tree<'a>(
                         f: &mut String,
                         validator: &Validator,
@@ -384,11 +403,27 @@ impl<'a> Validator<'a> {
                 );
 
                 // Propagate scope borrows
-                for (req_ty, (req_mut, _req_meta)) in &calling_scope.borrows {
+                for (req_ty, (mut req_mut, _req_meta)) in &calling_scope.borrows {
+                    // Ensure that we haven't "cancelled" this borrow's propagation using a sub-grant
+                    match calling_scope.sub_grants.get(req_ty) {
+                        Some((Mutability::Immutable, _)) => {
+                            // If we grant immutable access, we're either weakening immutable access
+                            // to immutable access or mutable access to immutable access.
+                            req_mut = Mutability::Immutable;
+                        }
+                        Some((Mutability::Mutable, _)) => {
+                            // If we grant mutable access, we're getting rid of the borrow all-together.
+                            continue;
+                        }
+                        None => {}
+                    }
+
+                    // Otherwise, propagate the borrow as usual.
                     let pbs_mut = caller_pbs
                         .entry(req_ty.clone())
                         .or_insert(Mutability::Immutable);
-                    *pbs_mut = pbs_mut.strictest(*req_mut);
+
+                    *pbs_mut = pbs_mut.strictest(req_mut);
                 }
 
                 // Propagate inherited borrows

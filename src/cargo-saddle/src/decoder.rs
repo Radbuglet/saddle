@@ -1,16 +1,20 @@
 use bstr::ByteSlice;
 
+use crate::validator::Mutability;
+
 const PREFIX: &'static str = "SaddleInternalV1DeclFor";
 const SUFFIX_DEP_REF: &'static str = "DepRef";
 const SUFFIX_DEP_MUT: &'static str = "DepMut";
+const SUFFIX_GRANT_REF: &'static str = "GrantRef";
+const SUFFIX_GRANT_MUT: &'static str = "GrantMut";
 const SUFFIX_CALLS: &'static str = "Call";
 
 const MALFORMED_SADDLE_MARKER_ERR: &'static str = "Malformed Saddle marker in binary";
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone)]
 pub enum DecoderEntryKind {
-    DepRef,
-    DepMut,
+    Dep(Mutability),
+    Grant(Mutability),
     Calls,
 }
 
@@ -31,10 +35,16 @@ pub fn decode_binary(
 
         let kind = if cursor.starts_with(SUFFIX_DEP_REF.as_bytes()) {
             cursor = &cursor[SUFFIX_DEP_REF.len()..];
-            DecoderEntryKind::DepRef
+            DecoderEntryKind::Dep(Mutability::Immutable)
         } else if cursor.starts_with(SUFFIX_DEP_MUT.as_bytes()) {
             cursor = &cursor[SUFFIX_DEP_MUT.len()..];
-            DecoderEntryKind::DepMut
+            DecoderEntryKind::Dep(Mutability::Mutable)
+        } else if cursor.starts_with(SUFFIX_GRANT_REF.as_bytes()) {
+            cursor = &cursor[SUFFIX_GRANT_REF.len()..];
+            DecoderEntryKind::Grant(Mutability::Immutable)
+        } else if cursor.starts_with(SUFFIX_GRANT_MUT.as_bytes()) {
+            cursor = &cursor[SUFFIX_GRANT_MUT.len()..];
+            DecoderEntryKind::Grant(Mutability::Mutable)
         } else if cursor.starts_with(SUFFIX_CALLS.as_bytes()) {
             cursor = &cursor[SUFFIX_CALLS.len()..];
             DecoderEntryKind::Calls

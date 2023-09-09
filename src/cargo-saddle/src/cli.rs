@@ -5,9 +5,7 @@ use clap::{Parser, Subcommand};
 
 use crate::{
     decoder::{decode_binary, DecoderEntryKind},
-    validator::{
-        BorrowMeta, CallMeta, ComponentId, ComponentMeta, Mutability, ScopeId, ScopeMeta, Validator,
-    },
+    validator::{BorrowMeta, CallMeta, ComponentId, ComponentMeta, ScopeId, ScopeMeta, Validator},
 };
 
 #[derive(Debug, Parser)]
@@ -57,13 +55,7 @@ pub fn main_inner() -> anyhow::Result<()> {
                 );
 
                 match mode {
-                    DecoderEntryKind::DepRef | DecoderEntryKind::DepMut => {
-                        let mutability = if mode == DecoderEntryKind::DepRef {
-                            Mutability::Immutable
-                        } else {
-                            Mutability::Mutable
-                        };
-
+                    DecoderEntryKind::Dep(mutability) => {
                         validator.annotate_component(
                             ComponentId(arg_2.clone(), []),
                             ComponentMeta {
@@ -73,6 +65,25 @@ pub fn main_inner() -> anyhow::Result<()> {
                         );
 
                         validator.push_access(
+                            ScopeId(arg_1, []),
+                            ComponentId(arg_2, []),
+                            mutability,
+                            BorrowMeta {
+                                def_path: "<unknown>",
+                                mutability,
+                            },
+                        );
+                    }
+                    DecoderEntryKind::Grant(mutability) => {
+                        validator.annotate_component(
+                            ComponentId(arg_2.clone(), []),
+                            ComponentMeta {
+                                _dummy: [],
+                                name: arg_2.clone(),
+                            },
+                        );
+
+                        validator.push_sub_grant(
                             ScopeId(arg_1, []),
                             ComponentId(arg_2, []),
                             mutability,
