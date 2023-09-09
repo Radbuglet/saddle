@@ -13,50 +13,50 @@ pub mod scope_macro_internals {
 
 #[macro_export]
 macro_rules! scope {
-	(
-		$from:expr => $to:ident;
-		$($body:tt)*
-	) => {
-		let __scope_internal_to_token = {
-			use $crate::scope_macro_internals::Scope as _;
-			$crate::scope_macro_internals::scope!(InlineBlock);
-
-			let to: &InlineBlock = $from.decl_call::<InlineBlock>();
-			to
-		};
-
-		$crate::scope_macro_internals::partial_shadow! {
-			$to;
-			let $to = __scope_internal_to_token;
-			$($body)*
-			$crate::scope_macro_internals::drop($to);
-		}
-	};
-	(
-		$from_and_to:ident:
-		$($body:tt)*
-	) => {
-		$crate::scope_macro_internals::scope! {
-			$from_and_to => $from_and_to;
-			$($body)*
-		}
-	};
     (
-		$(
-			$(#[$attr:meta])*
-			$vis:vis $name:ident
-		);*
-		$(;)?
-	) => {$(
-		$(#[$attr])*
-		$vis struct $name { _private: () }
+        $from:expr => $to:ident;
+        $($body:tt)*
+    ) => {
+        let __scope_internal_to_token = {
+            use $crate::scope_macro_internals::Scope as _;
+            $crate::scope_macro_internals::scope!(InlineBlock);
 
-		impl $crate::Scope for $name {
-			fn new<'a>() -> &'a Self {
-				&Self { _private: () }
-			}
-		}
-	)*};
+            let to: &InlineBlock = $from.decl_call::<InlineBlock>();
+            to
+        };
+
+        $crate::scope_macro_internals::partial_shadow! {
+            $to;
+            let $to = __scope_internal_to_token;
+            $($body)*
+            $crate::scope_macro_internals::drop($to);
+        }
+    };
+    (
+        $from_and_to:ident:
+        $($body:tt)*
+    ) => {
+        $crate::scope_macro_internals::scope! {
+            $from_and_to => $from_and_to;
+            $($body)*
+        }
+    };
+    (
+        $(
+            $(#[$attr:meta])*
+            $vis:vis $name:ident
+        );*
+        $(;)?
+    ) => {$(
+        $(#[$attr])*
+        $vis struct $name { _private: () }
+
+        impl $crate::Scope for $name {
+            fn new<'a>() -> &'a Self {
+                &Self { _private: () }
+            }
+        }
+    )*};
 }
 
 pub trait Scope: 'static + Sized {

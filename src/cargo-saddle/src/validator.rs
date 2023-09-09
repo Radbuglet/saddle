@@ -267,7 +267,7 @@ impl<'a> Validator<'a> {
                         f,
                         "The scope {} defined at {} borrows the component {} {} even though it may have already been borrowed {}.",
                         scope_info.meta.as_ref().unwrap().name,
-						scope_info.meta.as_ref().unwrap().defined_at,
+                        scope_info.meta.as_ref().unwrap().defined_at,
                         comp_meta.name,
                         req_mut.adjective(),
                         pre_mut.adjective(),
@@ -297,7 +297,7 @@ impl<'a> Validator<'a> {
                                 "{}- This scope could have borrowed the component {} at location {}.",
                                 Indent(indent),
                                 borrow_meta.mutability.adjective(),
-								borrow_meta.def_path,
+                                borrow_meta.def_path,
                             )
                             .unwrap();
                         }
@@ -326,7 +326,7 @@ impl<'a> Validator<'a> {
                                  {}  Hint: the following scopes may have been responsible for the aforementioned call...",
                                 Indent(indent),
                                 validator.call_graph[caller].meta.as_ref().unwrap().name,
-								validator.call_graph[caller].meta.as_ref().unwrap().defined_at,
+                                validator.call_graph[caller].meta.as_ref().unwrap().defined_at,
                                 caller_mut.adjective(),
                                 Indent(indent),
                             )

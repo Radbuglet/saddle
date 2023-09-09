@@ -12,10 +12,10 @@ use crate::{
 
 #[derive(Debug, Parser)]
 #[command(
-	author = "radbuglet",
-	version = "0.1.0",
-	about = "Statically validates saddle borrow rules on the chosen binary",
-	long_about = None,
+    author = "radbuglet",
+    version = "0.1.0",
+    about = "Statically validates saddle borrow rules on the chosen binary",
+    long_about = None,
 )]
 struct Args {
     #[command(subcommand)]
