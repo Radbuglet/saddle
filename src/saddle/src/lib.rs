@@ -1,4 +1,25 @@
+#![no_std]
+
 use core::{any::type_name, hint::black_box};
+
+#[doc(hidden)]
+pub mod scope_macro_internals {
+    pub fn leak_zst<'a, T: 'a>(value: T) -> &'a mut T {
+        // Ensure that the value is a ZST
+        assert_eq!(core::mem::size_of::<T>(), 0);
+
+        // Ensure that its destructor doesn't run
+        core::mem::forget(value);
+
+        unsafe { core::ptr::NonNull::<T>::dangling().as_mut() }
+    }
+
+    pub use {
+        crate::{scope, Scope},
+        core::mem::drop,
+        partial_scope::partial_shadow,
+    };
+}
 
 #[macro_export]
 macro_rules! scope {
@@ -6,20 +27,26 @@ macro_rules! scope {
 		$from:expr => $to:ident;
 		$($body:tt)*
 	) => {
-		let $to = {
-			$crate::scope!(InlineBlock);
+		let __scope_internal_to_token = {
+			use $crate::scope_macro_internals::Scope as _;
+			$crate::scope_macro_internals::scope!(InlineBlock);
 
-			let to: &mut InlineBlock = $from.decl_call();
+			let to: &mut InlineBlock = $from.decl_call::<InlineBlock>();
 			to
 		};
-		$($body)*
-		::std::mem::drop($to);
+
+		$crate::scope_macro_internals::partial_shadow! {
+			$to;
+			let $to = __scope_internal_to_token;
+			$($body)*
+			$crate::scope_macro_internals::drop($to);
+		}
 	};
 	(
 		$from_and_to:ident:
 		$($body:tt)*
 	) => {
-		$crate::scope! {
+		$crate::scope_macro_internals::scope! {
 			$from_and_to => $from_and_to;
 			$($body)*
 		}

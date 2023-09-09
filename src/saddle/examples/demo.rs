@@ -10,7 +10,6 @@ fn whee(c: &mut impl Scope) {
     scope! { c:
         woo(c);
         c.decl_dep_ref::<u32>();
-        c.decl_dep_ref::<i32>();
         Whee::default().do_something(c.decl_call());
     }
 }
