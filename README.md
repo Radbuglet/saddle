@@ -87,6 +87,8 @@ fn depends_upon_u32(c: &impl Scope) {
 
 **TODO:** Document dynamic dispatch and interaction with generics.
 
+**TODO:** Document grants and inheritance.
+
 As of the time of writing, Saddle borrow checking is performed by an external program called `cargo-saddle`. To invoke the checker, you can run:
 
 ```

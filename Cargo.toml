@@ -1,3 +1,8 @@
 [workspace]
 resolver = "2"
-members = ["src/cargo-saddle", "src/partial-scope", "src/saddle"]
+members = [
+	"src/cargo-saddle",
+	"src/partial-scope",
+	"src/saddle",
+	"src/saddle-analyzer",
+]

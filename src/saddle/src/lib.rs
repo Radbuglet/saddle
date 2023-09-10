@@ -119,6 +119,10 @@ pub trait Scope: 'static + Sized {
 
     fn new<'a>() -> &'a Self;
 
+    fn leak<'a>(&self) -> &'a Self {
+        Self::new()
+    }
+
     fn decl_dep_ref<T: 'static>(&self) {
         black_box(type_name::<
             SaddleInternalV1DeclForDepRef<Self::_InternalDisamb, T>,
