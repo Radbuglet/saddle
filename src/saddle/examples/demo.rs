@@ -17,7 +17,7 @@ fn main() {
 
 scope!(ExampleScope);
 
-fn example(c: &ExampleScope) {
+fn example(c: &mut ExampleScope) {
     // This call declares that our `ExampleScope` intends to access an `i32`. This method has no
     // runtime behavior and is purely to introduce metadata into the binary for the validator to
     // read.
@@ -53,7 +53,7 @@ fn other_function_helper(c: &OtherFunctionScope) {
 
 scope!(MySubScopedMethodScope);
 
-fn my_sub_scoped_method(c: &MySubScopedMethodScope) {
+fn my_sub_scoped_method(c: &mut MySubScopedMethodScope) {
     scope! { c => c;  // Reads as scope `c` is used to call a new scope, whose token we bind to `c`.
         c.decl_dep_ref::<u32>();
     }
@@ -65,7 +65,7 @@ fn my_sub_scoped_method(c: &MySubScopedMethodScope) {
     }
 }
 
-fn depends_upon_u32(c: &impl Scope) {
+fn depends_upon_u32(c: &mut impl Scope) {
     // We can use `scope!` blocks to avoid having to name new public scopes for every new function.
     scope! { c:
         c.decl_dep_mut::<u32>();

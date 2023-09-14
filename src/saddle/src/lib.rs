@@ -4,6 +4,8 @@ use core::{any::type_name, hint::black_box};
 
 #[doc(hidden)]
 pub mod scope_macro_internals {
+    use core::mem;
+
     pub use {
         crate::{scope, Scope},
         core::{column, line, mem::drop},
@@ -11,28 +13,30 @@ pub mod scope_macro_internals {
     };
 
     pub trait BindScopeAsRef: Scope {
-        fn __saddle_internal_bind_scope(&self) -> BoundScopeProof<'_, Self>;
+        fn __saddle_internal_bind_scope(&mut self) -> BoundScopeProof<'_, Self>;
     }
 
     impl<T: ?Sized + Scope> BindScopeAsRef for T {
-        fn __saddle_internal_bind_scope(&self) -> BoundScopeProof<'_, Self> {
+        fn __saddle_internal_bind_scope(&mut self) -> BoundScopeProof<'_, Self> {
             BoundScopeProof(self)
         }
     }
 
-    pub struct BoundScopeProof<'a, T: ?Sized>(&'a T);
+    pub struct BoundScopeProof<'a, T: ?Sized>(&'a mut T);
 
     impl<'a, T: ?Sized> BoundScopeProof<'a, T> {
-        pub fn unwrap(self) -> &'a T {
+        pub fn unwrap(self) -> &'a mut T {
             self.0
         }
     }
 
-    pub fn limit_lifetime<'a, T: ?Sized>(_limiter: &'a mut (), value: &'a T) -> &'a T {
-        value
-    }
-
     pub struct ScopeDisambiguator<T, const LINE: u32, const COLUMN: u32>(T);
+
+    pub fn leak_zst<'a, T>(t: T) -> &'a mut T {
+        assert_eq!(mem::size_of::<T>(), 0);
+        mem::forget(t);
+        unsafe { core::ptr::NonNull::<T>::dangling().as_mut() }
+    }
 }
 
 #[macro_export]
@@ -41,7 +45,6 @@ macro_rules! scope {
         $from:expr => $to:ident $(inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?;
         $($body:tt)*
     ) => {
-		let mut __lifetime_limiter = ();
         let __scope_internal_to_token = {
 			let from = {
 				use $crate::scope_macro_internals::BindScopeAsRef as _;
@@ -52,10 +55,7 @@ macro_rules! scope {
 
             $crate::scope_macro_internals::scope!(InlineBlock);
 
-            let to = $crate::scope_macro_internals::limit_lifetime::<InlineBlock>(
-				&mut __lifetime_limiter,
-				$crate::scope_macro_internals::Scope::decl_call::<InlineBlock>(from),
-			);
+            let to = $crate::scope_macro_internals::Scope::decl_call::<InlineBlock>(from);
 
 			$($($crate::scope_macro_internals::scope!(@__decl_grant to, $grant_kw $grant_ty);)*)?
 
@@ -67,7 +67,6 @@ macro_rules! scope {
             let $to = __scope_internal_to_token;
             $($body)*
         }
-		$crate::scope_macro_internals::drop(__lifetime_limiter);
     };
     (
         $from_and_to:ident $(inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?:
@@ -95,8 +94,8 @@ macro_rules! scope {
 				{$crate::scope_macro_internals::column!()},
 			>;
 
-            fn new<'a>() -> &'a Self {
-                &Self { _private: () }
+            fn new<'a>() -> &'a mut Self {
+                $crate::scope_macro_internals::leak_zst(Self { _private: () })
             }
         }
     )*};
@@ -117,9 +116,9 @@ macro_rules! scope {
 pub trait Scope: 'static + Sized {
     type _InternalDisamb: Sized;
 
-    fn new<'a>() -> &'a Self;
+    fn new<'a>() -> &'a mut Self;
 
-    fn leak<'a>(&self) -> &'a Self {
+    fn leak<'a>(&self) -> &'a mut Self {
         Self::new()
     }
 
@@ -147,7 +146,7 @@ pub trait Scope: 'static + Sized {
         >());
     }
 
-    fn decl_call<G: Scope>(&self) -> &G {
+    fn decl_call<G: Scope>(&mut self) -> &mut G {
         black_box(type_name::<
             SaddleInternalV1DeclForCall<Self::_InternalDisamb, G::_InternalDisamb>,
         >());
