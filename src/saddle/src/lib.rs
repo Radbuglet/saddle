@@ -41,6 +41,28 @@ pub mod scope_macro_internals {
 
 #[macro_export]
 macro_rules! scope {
+	(
+        $(
+            $(#[$attr:meta])*
+            $vis:vis $name:ident $(<$($generic:ident),*$(,)?>)?
+        );*
+        $(;)?
+    ) => {$(
+        $(#[$attr])*
+        $vis struct $name<$($($generic: 'static),*)?> { _private: [($($($generic,)*)?); 0] }
+
+        impl<$($($generic: 'static),*)?> $crate::scope_macro_internals::Scope for $name<$($($generic),*)?> {
+			type _InternalDisamb = $crate::scope_macro_internals::ScopeDisambiguator<
+				Self,
+				{$crate::scope_macro_internals::line!()},
+				{$crate::scope_macro_internals::column!()},
+			>;
+
+            fn new<'a>() -> &'a mut Self {
+                $crate::scope_macro_internals::leak_zst(Self { _private: [] })
+            }
+        }
+    )*};
     (
         $from:expr => $to:ident $(inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?;
         $($body:tt)*
@@ -53,9 +75,13 @@ macro_rules! scope {
 
 			$($($crate::scope_macro_internals::scope!(@__decl_dep from, $grant_kw $grant_ty);)*)?
 
-            $crate::scope_macro_internals::scope!(InlineBlock);
+            $crate::scope_macro_internals::scope!(InlineBlock<Caller>);
 
-            let to = $crate::scope_macro_internals::Scope::decl_call::<InlineBlock>(from);
+			fn decl_call<C: 'static + $crate::scope_macro_internals::Scope>(caller: &mut C) -> &mut InlineBlock<C> {
+				$crate::scope_macro_internals::Scope::decl_call(caller)
+			}
+
+			let to = decl_call(from);
 
 			$($($crate::scope_macro_internals::scope!(@__decl_grant to, $grant_kw $grant_ty);)*)?
 
@@ -77,28 +103,6 @@ macro_rules! scope {
             $($body)*
         }
     };
-    (
-        $(
-            $(#[$attr:meta])*
-            $vis:vis $name:ident
-        );*
-        $(;)?
-    ) => {$(
-        $(#[$attr])*
-        $vis struct $name { _private: () }
-
-        impl $crate::scope_macro_internals::Scope for $name {
-			type _InternalDisamb = $crate::scope_macro_internals::ScopeDisambiguator<
-				Self,
-				{$crate::scope_macro_internals::line!()},
-				{$crate::scope_macro_internals::column!()},
-			>;
-
-            fn new<'a>() -> &'a mut Self {
-                $crate::scope_macro_internals::leak_zst(Self { _private: () })
-            }
-        }
-    )*};
 	(@__decl_dep $target:expr, ref $ty:ty) => {
 		$crate::scope_macro_internals::Scope::decl_dep_ref::<$ty>($target);
 	};
