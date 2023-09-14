@@ -45,13 +45,20 @@ macro_rules! scope {
         $(
             $(#[$attr:meta])*
             $vis:vis $name:ident $(<$($generic:ident),*$(,)?>)?
+			$(where {$($where:tt)*})?
         );*
         $(;)?
     ) => {$(
         $(#[$attr])*
-        $vis struct $name<$($($generic: 'static),*)?> { _private: [($($($generic,)*)?); 0] }
+        $vis struct $name<$($($generic: 'static),*)?>
+		$(where $($where)*)?
+		{
+			_private: [($($($generic,)*)?); 0],
+		}
 
-        impl<$($($generic: 'static),*)?> $crate::scope_macro_internals::Scope for $name<$($($generic),*)?> {
+        impl<$($($generic: 'static),*)?> $crate::scope_macro_internals::Scope for $name<$($($generic),*)?>
+		$(where $($where)*)?
+		{
 			type _InternalDisamb = $crate::scope_macro_internals::ScopeDisambiguator<
 				Self,
 				{$crate::scope_macro_internals::line!()},
