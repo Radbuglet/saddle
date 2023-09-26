@@ -70,7 +70,7 @@ macro_rules! scope {
             }
         }
     )*};
-	(from $from:expr $(; inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?) => {
+	(use $from:expr $(, inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?) => {
 		{
 			let from = {
 				use $crate::scope_macro_internals::BindScopeAsRef as _;
@@ -93,11 +93,11 @@ macro_rules! scope {
         }
 	};
     (
-        $from:expr => $to:ident $(inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?;
+        use $from:expr => $to:ident $(, inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)? :
         $($body:tt)*
     ) => {
         let __scope_internal_to_token = $crate::scope_macro_internals::scope!(
-			from $from $(; inherits $($grant_kw $grant_ty),*)?
+			use $from $(, inherits $($grant_kw $grant_ty),*)?
 		);
 
         $crate::scope_macro_internals::partial_shadow! {
@@ -107,11 +107,11 @@ macro_rules! scope {
         }
     };
     (
-        $from_and_to:ident $(inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?:
+        use $from_and_to:ident $(, inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?:
         $($body:tt)*
     ) => {
         $crate::scope_macro_internals::scope! {
-            $from_and_to => $from_and_to $(inherits $($grant_kw $grant_ty),*)?;
+            use $from_and_to => $from_and_to $(, inherits $($grant_kw $grant_ty),*)?:
             $($body)*
         }
     };

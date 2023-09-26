@@ -54,11 +54,11 @@ fn other_function_helper(c: &OtherFunctionScope) {
 scope!(MySubScopedMethodScope);
 
 fn my_sub_scoped_method(c: &mut MySubScopedMethodScope) {
-    scope! { c => c;  // Reads as scope `c` is used to call a new scope, whose token we bind to `c`.
+    scope! { use c => c:  // Reads as scope `c` is used to call a new scope, whose token we bind to `c`.
         c.decl_dep_ref::<u32>();
     }
 
-    scope! { c: // This is an alternative way to say the same thing.
+    scope! { use c: // This is an alternative way to say the same thing.
         // If we put this method call in the same scope as our borrow to `u32`, we would get a
         // warning from the saddle validator.
         depends_upon_u32(c);
@@ -67,7 +67,13 @@ fn my_sub_scoped_method(c: &mut MySubScopedMethodScope) {
 
 fn depends_upon_u32(c: &mut impl Scope) {
     // We can use `scope!` blocks to avoid having to name new public scopes for every new function.
-    scope! { c:
+    scope! { use c:
+        c.decl_dep_mut::<u32>();
+    }
+
+    // Alternatively, we could use the expression syntax.
+    {
+        let c = scope!(use c);
         c.decl_dep_mut::<u32>();
     }
 }
