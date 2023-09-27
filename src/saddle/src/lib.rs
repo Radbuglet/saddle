@@ -37,6 +37,11 @@ pub mod scope_macro_internals {
         mem::forget(t);
         unsafe { core::ptr::NonNull::<T>::dangling().as_mut() }
     }
+
+    #[must_use]
+    pub fn mark_as_must_use<T>(v: T) -> T {
+        v
+    }
 }
 
 #[macro_export]
@@ -71,7 +76,7 @@ macro_rules! scope {
         }
     )*};
 	(use $from:expr $(, inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)?) => {
-		{
+		$crate::scope_macro_internals::mark_as_must_use({
 			let from = {
 				use $crate::scope_macro_internals::BindScopeAsRef as _;
 				$crate::scope_macro_internals::BoundScopeProof::unwrap($from.__saddle_internal_bind_scope())
@@ -90,7 +95,7 @@ macro_rules! scope {
 			$($($crate::scope_macro_internals::scope!(@__decl_grant to, $grant_kw $grant_ty);)*)?
 
 			to
-        }
+        })
 	};
     (
         use $from:expr => $to:ident $(, inherits $($grant_kw:ident $grant_ty:ty),*$(,)?)? :
